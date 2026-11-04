@@ -14,61 +14,87 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-
-  final AuthService _authService = AuthService();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _authService = AuthService();
 
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _isVisible = false;
 
-  void _login() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+  @override
+  void initState() {
+    super.initState();
 
-      String email = _emailController.text;
-      String password = _passwordController.text;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _isVisible = true;
+        });
+      }
+    });
+  }
 
-      final user = await _authService.login(email, password);
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final user = await _authService.login(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
 
       if (!mounted) return;
 
-      setState(() {
-        _isLoading = false;
-      });
-
       if (user != null) {
-        // Connexion réussie avec informations supplémentaires
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => ProfileScreen(
-              email: email,
-              firstName: user['firstName'],
-              lastName: user['lastName'],
-              role: user['role'] == 1 ? 'Admin' : 'User',
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              role: user.role == 1 ? 'Admin' : 'User',
             ),
           ),
         );
       } else {
-        // Connexion échouée
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Erreur'),
-            content: const Text('Email ou mot de passe incorrect'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
+        _showError('Email ou mot de passe incorrect.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showError(
+        'Impossible de contacter le serveur. Réessayez plus tard.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
+  }
+
+  void _showError(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Erreur'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -81,76 +107,157 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
-                    icon: Icon(Icons.mail),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: AnimatedOpacity(
+                opacity: _isVisible ? 1 : 0,
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.easeInOut,
+                child: Card(
+                  elevation: 4,
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    // Validation de l'email
-                    if (value == null || value.isEmpty) {
-                      return 'Veuillez entrer votre email';
-                    }
+                  child: Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment:
+                        CrossAxisAlignment.stretch,
+                        children: [
+                          const Icon(
+                            Icons.lock_person_rounded,
+                            size: 72,
+                            color: Colors.blueAccent,
+                          ),
+                          const SizedBox(height: 20),
 
-                    // Regex simple pour valider l'email
-                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
-                        .hasMatch(value)) {
-                      return 'Veuillez entrer un email valide';
-                    }
+                          const Text(
+                            'Bienvenue !',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
 
-                    return null;
-                  },
-                ),
+                          const Text(
+                            'Connectez-vous à votre compte',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
 
-                const SizedBox(height: 16.0),
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType:
+                            TextInputType.emailAddress,
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                              prefixIcon: Icon(
+                                Icons.email_outlined,
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null ||
+                                  value.trim().isEmpty) {
+                                return 'Veuillez saisir un email';
+                              }
 
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Mot de passe',
-                    border: OutlineInputBorder(),
-                    icon: Icon(Icons.lock),
+                              final emailRegex = RegExp(
+                                r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                              );
+
+                              if (!emailRegex.hasMatch(
+                                value.trim(),
+                              )) {
+                                return 'Email invalide';
+                              }
+
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              labelText: 'Mot de passe',
+                              prefixIcon: const Icon(
+                                Icons.lock_outline,
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword =
+                                    !_obscurePassword;
+                                  });
+                                },
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null ||
+                                  value.isEmpty) {
+                                return 'Veuillez saisir un mot de passe';
+                              }
+
+                              if (value.length < 6) {
+                                return 'Minimum 6 caractères';
+                              }
+
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 28),
+
+                          SizedBox(
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed:
+                              _isLoading ? null : _login,
+                              child: _isLoading
+                                  ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child:
+                                CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                                  : const Text(
+                                'Se connecter',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight:
+                                  FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  obscureText: true,
-                  validator: (value) {
-                    // Validation du mot de passe
-                    if (value == null || value.isEmpty) {
-                      return 'Veuillez entrer votre mot de passe';
-                    }
-
-                    if (value.length < 6) {
-                      return 'Le mot de passe doit contenir au moins 6 caractères';
-                    }
-
-                    return null;
-                  },
                 ),
-
-                const SizedBox(height: 24.0),
-
-                // Indicateur de chargement
-                _isLoading
-                    ? const CircularProgressIndicator()
-                    : ElevatedButton(
-                  onPressed: _login,
-                  child: const Text('Se connecter'),
-                ),
-              ],
+              ),
             ),
           ),
         ),
