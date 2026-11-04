@@ -48,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
               email: email,
               firstName: user['firstName'],
               lastName: user['lastName'],
-              role: user['role'],
+              role: user['role'] == 1 ? 'Admin' : 'User',
             ),
           ),
         );
