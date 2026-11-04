@@ -53,6 +53,13 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (user != null) {
+        final protectedUser = await _authService.getCurrentUser();
+
+        debugPrint(
+          'Utilisateur récupéré avec JWT : ${protectedUser?.email}',
+        );
+
+        if (!mounted) return;
         Navigator.push(
           context,
           MaterialPageRoute(

@@ -1,11 +1,14 @@
 
 import 'package:flutter/material.dart';
 
+import '../services/auth_service.dart';
+
 class ProfileScreen extends StatelessWidget {
   final String email;
   final String firstName;
   final String lastName;
   final String role;
+  final Future<void> Function()? onLogout;
 
   const ProfileScreen({
     super.key,
@@ -13,10 +16,23 @@ class ProfileScreen extends StatelessWidget {
     required this.firstName,
     required this.lastName,
     required this.role,
+    this.onLogout,
   });
 
   @override
   Widget build(BuildContext context) {
+    Future<void> handleLogout() async {
+      if (onLogout != null) {
+        await onLogout!();
+      } else {
+        await AuthService().logout();
+
+        if (!context.mounted) return;
+
+        Navigator.pop(context);
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.blueAccent,
@@ -27,9 +43,7 @@ class ProfileScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () {
-              Navigator.pop(context);
-            },
+            onPressed: handleLogout,
           ),
         ],
       ),
@@ -50,7 +64,7 @@ class ProfileScreen extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Affichage des informations du profil
+                        // Informations du profil
                         ListTile(
                           leading: const Icon(Icons.person),
                           title: const Text('Nom'),
@@ -77,9 +91,7 @@ class ProfileScreen extends StatelessWidget {
                             backgroundColor: Colors.white60,
                             foregroundColor: Colors.black,
                           ),
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
+                          onPressed: handleLogout,
                           child: const Text('Se déconnecter'),
                         ),
                       ],
